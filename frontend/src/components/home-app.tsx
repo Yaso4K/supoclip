@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { CaptionSizeControl } from "@/components/caption-size-control";
 import { ComposerSettings } from "@/components/composer-settings";
-import { FeatureTourHost } from "@/components/feature-tour";
 import { OUTPUT_FORMATS, parseCreateSettings, type CreateSettings, type LengthWorkflow, type OutputFormat } from "@/lib/create-settings";
 import { VideoSourceIcon } from "@/components/video-source-icon";
 import { availableWorkflows, useWorkflowsInfo, WorkflowPicker } from "@/components/workflow-picker";
@@ -863,7 +862,7 @@ export default function HomeApp() {
     : null;
 
   return (
-    <AppShell>
+    <AppShell tour={{ busy: hasSource || isLoading || upgradeReason !== null, onWorkflow: previewWorkflow, onEnd: endWorkflowPreview }}>
       <main className="mx-auto w-full max-w-5xl px-4 pb-20 pt-10 sm:px-8 md:pt-[12vh]">
         {billingSummary?.cancel_at && billingSummary.subscription_provider === "stripe" && (
           <SubscriptionCancelBanner
@@ -903,6 +902,7 @@ export default function HomeApp() {
           )}
 
           <form
+            data-tour="composer"
             noValidate
             onSubmit={handleSubmit}
             onDragOver={(event) => { event.preventDefault(); if (!controlsDisabled) setIsDragging(true); }}
@@ -935,7 +935,7 @@ export default function HomeApp() {
               </div>
             )}
 
-            <div className="flex items-start gap-3 p-3 pb-2 sm:p-4 sm:pb-2">
+            <div data-tour="composer-source" className="flex items-start gap-3 p-3 pb-2 sm:p-4 sm:pb-2">
               {file ? (
                 <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-muted/60 p-2 pr-3">
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-foreground text-background"><FileVideo className="size-5" /></span>
@@ -1377,8 +1377,6 @@ export default function HomeApp() {
               <AlertDescription className="text-sm text-red-700 dark:text-red-300">{error}</AlertDescription>
             </Alert>
           )}
-
-          <FeatureTourHost enabled={Boolean(session?.user?.id)} busy={hasSource || isLoading || upgradeReason !== null} onWorkflow={previewWorkflow} onEnd={endWorkflowPreview} />
 
           <p id="source-limits" className="sr-only">
             {t("uploadLimits", { size: formatUploadLimit(uploadLimitBytes) })}{limitNote ? ` ${limitNote}` : ""}
