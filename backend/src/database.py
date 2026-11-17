@@ -30,21 +30,36 @@ class Base(DeclarativeBase):
     pass
 
 
+# A pooled connection unused this long is closed by PostgreSQL. Without it every
+# process keeps its busiest moment's connections for life, so the idle API pairs a
+# release switch keeps running for rollback held most of max_connections.
+IDLE_SESSION_TIMEOUT_MS = 600_000
+
+
 def _build_engine(database_url: str) -> AsyncEngine:
     return create_async_engine(
         database_url,
         echo=False,
         pool_size=10,
         max_overflow=20,
+        # pre-ping replaces a connection the server closed for idleness, and LIFO
+        # lets a trickle of queries (health checks) reuse one connection so the
+        # rest can go idle instead of each being touched in turn.
         pool_pre_ping=True,
+        pool_use_lifo=True,
         pool_recycle=3600,
         # Safety net for the primary leak fix in api/routes/tasks.py
         # (get_clip_file/export_clip release their session before streaming):
         # any session parked mid-transaction this long is leaked, not legitimately
         # busy. Killing it returns the connection to the pool instead of letting
         # it accumulate toward QueuePool exhaustion.
+        # Advisory lock holders sit idle outside a transaction, so they use their
+        # own engine (session_lock_connection) without these settings.
         connect_args={
-            "server_settings": {"idle_in_transaction_session_timeout": "300000"}
+            "server_settings": {
+                "idle_in_transaction_session_timeout": "300000",
+                "idle_session_timeout": str(IDLE_SESSION_TIMEOUT_MS),
+            }
         },
     )
 
